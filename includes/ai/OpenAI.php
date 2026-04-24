@@ -40,14 +40,24 @@ class AlphaSuite_OpenAI
         $c = self::cfg();
 
         if (!$c['key']) {
-            return new WP_Error('pga_no_key', 'Chave OpenAI não configurada.');
+            return new WP_Error('pga_no_key', 'Chave OpenAI nÃ£o configurada.');
         }
 
+        $apiMode = strtolower(trim((string)($args['api_mode'] ?? $args['endpoint'] ?? 'responses')));
+        if ($apiMode === 'chat' || $apiMode === 'chat_completions' || $apiMode === 'completions') {
+            return self::complete_chat_completions($prompt, $schema, $args, $c);
+        }
+
+        return self::complete_responses($prompt, $schema, $args, $c);
+    }
+
+    private static function complete_responses(string $prompt, array $schema, array $args, array $c)
+    {
         $isStructured = !empty($schema);
 
         $body = [
-            "model" => $c['model'] ?? $c['model_text'],
-            "input" => $prompt
+            'model' => $c['model'] ?? $c['model_text'],
+            'input' => $prompt,
         ];
 
         $res = wp_remote_post(
@@ -80,7 +90,7 @@ class AlphaSuite_OpenAI
         if (json_last_error() !== JSON_ERROR_NONE) {
             return new WP_Error(
                 'pga_openai_invalid_json',
-                'Resposta inválida da OpenAI.',
+                'Resposta invÃ¡lida da OpenAI.',
                 ['raw_tail' => substr($raw, -500)]
             );
         }
@@ -100,7 +110,79 @@ class AlphaSuite_OpenAI
         if (!is_array($parsed)) {
             return new WP_Error(
                 'pga_json_invalid',
-                'JSON inválido retornado.',
+                'JSON invÃ¡lido retornado.',
+                ['snippet' => mb_substr($txt, 0, 1000)]
+            );
+        }
+
+        return $parsed;
+    }
+
+    private static function complete_chat_completions(string $prompt, array $schema, array $args, array $c)
+    {
+        $isStructured = !empty($schema);
+
+        $body = [
+            'model' => $c['model'] ?? $c['model_text'],
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ],
+            ],
+            'temperature' => (float)($args['temperature'] ?? ($isStructured ? 0 : 0.3)),
+            'max_completion_tokens' => (int)($args['max_completion_tokens'] ?? $args['max_tokens'] ?? ($isStructured ? 1400 : 2200)),
+            'n' => 1,
+        ];
+
+        $res = wp_remote_post(
+            'https://api.openai.com/v1/chat/completions',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $c['key'],
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => wp_json_encode($body),
+                'timeout' => $c['timeout'] ?? 120,
+            ]
+        );
+
+        if (is_wp_error($res)) {
+            return $res;
+        }
+
+        $code = wp_remote_retrieve_response_code($res);
+        $raw  = wp_remote_retrieve_body($res);
+
+        if ($code !== 200) {
+            $j = json_decode($raw, true);
+            $msg = $j['error']['message'] ?? ('HTTP ' . $code);
+            return new WP_Error('pga_openai_http', $msg, ['http_code' => $code]);
+        }
+
+        $json = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error(
+                'pga_openai_invalid_json',
+                'Resposta invÃ¡lida da OpenAI.',
+                ['raw_tail' => substr($raw, -500)]
+            );
+        }
+
+        $txt = self::extract_chat_output_text($json);
+        if (!$txt) {
+            return new WP_Error('pga_no_output', 'Nenhum texto retornado pela API.');
+        }
+
+        if (!$isStructured) {
+            return trim($txt);
+        }
+
+        $parsed = AlphaSuite_AI::decode_json_payload($txt);
+        if (!is_array($parsed)) {
+            return new WP_Error(
+                'pga_json_invalid',
+                'JSON invÃ¡lido retornado.',
                 ['snippet' => mb_substr($txt, 0, 1000)]
             );
         }
@@ -113,7 +195,7 @@ class AlphaSuite_OpenAI
         $c = self::cfg();
 
         if (empty($c['key'])) {
-            return new WP_Error('no_key', 'Chave OpenAI não configurada.');
+            return new WP_Error('no_key', 'Chave OpenAI nÃ£o configurada.');
         }
 
         $res = wp_remote_post(
@@ -125,7 +207,7 @@ class AlphaSuite_OpenAI
                 ],
                 'body' => wp_json_encode([
                     'model' => $args['model'] ?? 'text-embedding-3-small',
-                    'input' => $texts   // 🔥 AQUI ESTÁ A MUDANÇA
+                    'input' => $texts
                 ]),
                 'timeout' => $c['timeout'] ?? 30
             ]
@@ -138,7 +220,7 @@ class AlphaSuite_OpenAI
         $body = json_decode(wp_remote_retrieve_body($res), true);
 
         if (empty($body['data'])) {
-            return new WP_Error('embedding_error', 'Embedding inválido');
+            return new WP_Error('embedding_error', 'Embedding invÃ¡lido');
         }
 
         $embeddings = [];
@@ -152,7 +234,7 @@ class AlphaSuite_OpenAI
 
     /*
     |--------------------------------------------------------------------------
-    | Extração segura de texto
+    | ExtraÃ§Ã£o segura de texto
     |--------------------------------------------------------------------------
     */
 
@@ -173,5 +255,14 @@ class AlphaSuite_OpenAI
         }
 
         return trim($txt);
+    }
+
+    private static function extract_chat_output_text(array $json): string
+    {
+        if (!empty($json['choices'][0]['message']['content']) && is_string($json['choices'][0]['message']['content'])) {
+            return trim((string) $json['choices'][0]['message']['content']);
+        }
+
+        return '';
     }
 }

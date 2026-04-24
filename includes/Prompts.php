@@ -68,8 +68,10 @@ class AlphaSuite_Prompts
     {
         return [
             'title'                => __('Título', 'alpha-suite'),
+            'idea'                 => __('Ideia', 'alpha-suite'),
             'outline'              => __('Esboço', 'alpha-suite'),
             'section'              => __('Seções', 'alpha-suite'),
+            'vistoria'             => __('Vistoria', 'alpha-suite'),
             'excerpt'              => __('Subtítulo', 'alpha-suite'),
             'meta_description'     => __('Meta descrição', 'alpha-suite'),
             'keywords'             => __('Gerar keywords', 'alpha-suite'),
@@ -127,6 +129,9 @@ class AlphaSuite_Prompts
             if ($stage === 'title') {
                 return self::default_title_modelar_youtube_prompt();
             }
+            if ($stage === 'idea') {
+                return self::default_idea_modelar_youtube_prompt();
+            }
             if ($stage === 'outline') {
                 return self::default_outline_modelar_youtube_prompt();
             }
@@ -138,6 +143,9 @@ class AlphaSuite_Prompts
         if ($template === 'rss') {
             if ($stage === 'title') {
                 return self::default_title_rss_prompt();
+            }
+            if ($stage === 'idea') {
+                return self::default_idea_rss_prompt();
             }
             if ($stage === 'outline') {
                 return self::default_outline_rss_prompt();
@@ -151,6 +159,8 @@ class AlphaSuite_Prompts
         switch ($stage) {
             case 'title':
                 return self::default_title_prompt();
+            case 'idea':
+                return self::default_idea_prompt();
             case 'outline':
                 return self::default_outline_prompt();
             case 'section':
@@ -165,6 +175,8 @@ class AlphaSuite_Prompts
                 return self::default_meta_description_prompt();
             case 'post_thumbnail_regen':
                 return self::default_post_thumbnail_regen_prompt();
+            case 'vistoria':
+                return self::default_vistoria_prompt();
             case 'story':
                 return self::story_default_template();
             case 'keywords':
@@ -189,6 +201,67 @@ class AlphaSuite_Prompts
     {
         return "Responda APENAS em JSON UTF-8 válido no formato:\n"
             . "{ \"title\": [\"Título 1\", \"Título 2\", \"Título 3\"] }\n";
+    }
+
+    public static function idea_brief_to_text($idea): string
+    {
+        if (!is_array($idea) || empty($idea)) {
+            return '';
+        }
+
+        $lines = [];
+
+        foreach ([
+            'angle' => 'Ângulo',
+            'intent' => 'Intenção',
+            'core_problem' => 'Problema central',
+            'reader_promise' => 'Promessa ao leitor',
+            'tone' => 'Tom',
+            'avoid' => 'Evitar',
+        ] as $key => $label) {
+            if (!empty($idea[$key])) {
+                $value = $idea[$key];
+                if (is_array($value)) {
+                    $value = implode(', ', array_slice(array_filter(array_map('trim', $value)), 0, 8));
+                }
+                $value = trim((string) $value);
+                if ($value !== '') {
+                    $lines[] = "{$label}: {$value}";
+                }
+            }
+        }
+
+        if (!empty($idea['must_cover']) && is_array($idea['must_cover'])) {
+            $must = array_slice(array_filter(array_map('trim', $idea['must_cover'])), 0, 8);
+            if ($must) {
+                $lines[] = 'Cobertura obrigatória: ' . implode(', ', $must);
+            }
+        }
+
+        if (!empty($idea['section_plan']) && is_array($idea['section_plan'])) {
+            $plan = [];
+            foreach (array_slice($idea['section_plan'], 0, 10) as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $heading = trim((string)($item['heading'] ?? ''));
+                $purpose = trim((string)($item['purpose'] ?? ''));
+                if ($heading === '') {
+                    continue;
+                }
+                $line = "- {$heading}";
+                if ($purpose !== '') {
+                    $line .= " — {$purpose}";
+                }
+                $plan[] = $line;
+            }
+
+            if ($plan) {
+                $lines[] = "Plano sugerido:\n" . implode("\n", $plan);
+            }
+        }
+
+        return trim(implode("\n", $lines));
     }
 
     private static function outline_json_suffix(): string
@@ -255,12 +328,83 @@ class AlphaSuite_Prompts
         return array_slice($chapters, 0, 30);
     }
 
+    public static function build_idea_prompt(
+        string $template,
+        string $keyword,
+        string $articleTitle,
+        string $length,
+        string $lang,
+        string $url = '',
+        string $content = ''
+    ): string {
+        $tpl = self::get_prompt_for($template, 'idea');
+
+        [$minWords, $maxWords] = self::length_to_range($length);
+        $cfg = self::outline_config($length);
+
+        $base = self::replace_vars($tpl, [
+            'keyword'      => $keyword,
+            'articleTitle' => $articleTitle,
+            'lang'         => $lang,
+            'template'     => $template,
+            'content'      => $content,
+            'min_sections' => $cfg['min_sections'] ?? 4,
+            'max_sections' => $cfg['max_sections'] ?? 8,
+            'min_words'    => $minWords,
+            'max_words'    => $maxWords,
+            'date'         => SELF::date(),
+        ]);
+
+        $ctx = "\n\nCONTEXTO BASE:\n";
+        $ctx .= "- Titulo do artigo: {$articleTitle}\n";
+        $ctx .= "- Palavra-chave: {$keyword}\n";
+        $ctx .= "- Idioma: {$lang}\n";
+        $ctx .= "- Hoje e: " . SELF::date() . "\n";
+
+        if ($url !== '') {
+            $ctx .= "- URL base: {$url}\n";
+        }
+
+        if ($content !== '') {
+            $plain = wp_strip_all_tags($content);
+            $plain = html_entity_decode($plain, ENT_QUOTES, 'UTF-8');
+            $plain = function_exists('mb_substr') ? mb_substr($plain, 0, 1200) : substr($plain, 0, 1200);
+            $ctx .= "- Conteudo base (trecho):\n{$plain}\n";
+        }
+
+        $minSections = max(1, (int)($cfg['min_sections'] ?? 4));
+        $maxSections = max($minSections, (int)($cfg['max_sections'] ?? 8));
+
+        $suffix = ""
+            . "Retorne apenas JSON UTF-8 valido.\n"
+            . "Nao use markdown, crases ou texto fora do JSON.\n"
+            . "Formato obrigatorio:\n"
+            . "{\n"
+            . "  \"angle\": \"\",\n"
+            . "  \"intent\": \"\",\n"
+            . "  \"core_problem\": \"\",\n"
+            . "  \"reader_promise\": \"\",\n"
+            . "  \"tone\": \"\",\n"
+            . "  \"must_cover\": [\"\"],\n"
+            . "  \"avoid\": [\"\"],\n"
+            . "  \"section_plan\": [\n"
+            . "    {\"heading\": \"\", \"purpose\": \"\", \"level\": \"h2\"}\n"
+            . "  ]\n"
+            . "}\n"
+            . "section_plan deve ter entre {$minSections} e {$maxSections} itens.\n"
+            . "Nao use 'Introducao' ou 'Conclusao' sem necessidade clara.\n"
+            . "Nao invente fatos externos. O objetivo e criar um briefing editorial, nao fazer pesquisa.\n";
+
+        return $base . $ctx . "\n\n" . $suffix . "\n";
+    }
+
     public static function build_outline_prompt_modelar_youtube(
         string $url,
         array  $video,
         string $articleTitle,
         string $length,
-        string $lang
+        string $lang,
+        array $idea = []
     ): string {
 
         $tpl    = self::get_prompt_for('modelar_youtube', 'outline');
@@ -336,6 +480,11 @@ class AlphaSuite_Prompts
 
         $ctx .= "- Regra: inclua uma introdução curta (primeira seção H2) contextualizando o tema.\n";
         $ctx .= "- Não use markdown; use somente HTML.\n";
+
+        $ideaText = self::idea_brief_to_text($idea);
+        if ($ideaText !== '') {
+            $ctx .= "- Brief editorial (ideia validada):\n{$ideaText}\n";
+        }
 
         $suffix = ""
             . "Responda apenas com JSON UTF-8 valido.\n"
@@ -423,6 +572,7 @@ class AlphaSuite_Prompts
         string $lang,
         string $url = '',
         string $content = '',
+        array $idea = [],
 
     ): string {
         $tpl = self::get_prompt_for($template, 'outline');
@@ -445,6 +595,11 @@ class AlphaSuite_Prompts
             'min_words'    => $minWords,
             'date'         => SELF::date()
         ]);
+
+        $ideaText = self::idea_brief_to_text($idea);
+        if ($ideaText !== '') {
+            $base .= "\n\nBRIEF ESTRATEGICO:\n{$ideaText}\n";
+        }
 
         $suffix = ""
             . "Responda apenas com JSON UTF-8 valido.\n"
@@ -2398,6 +2553,7 @@ class AlphaSuite_Prompts
         string $section_number,
         string $content = '',
         string $url = '',
+        array $idea = [],
     ): string {
         $tpl = self::get_prompt_for($template, 'section');
         $heading = trim((string)($section['heading'] ?? ''));
@@ -2539,6 +2695,11 @@ class AlphaSuite_Prompts
             $brief .= "Guias sugeridos:\n{$bullets}\n\n";
         }
 
+        $ideaText = self::idea_brief_to_text($idea);
+        if ($ideaText !== '') {
+            $state .= "IDEIA VALIDADA:\n{$ideaText}\n\n";
+        }
+
         if ($content)
             $content .= "O conteúdo a ser modelado é com base nesse:\n"
                 . "----- INICIO ------\n"
@@ -2574,6 +2735,11 @@ class AlphaSuite_Prompts
 
         if ($template === 'modelar_youtube') {
             $tech .= "- NUNCA mencione: vídeo, canal, link, URL, ou qualquer referência à fonte original\n";
+        }
+
+        $ideaText = self::idea_brief_to_text($idea);
+        if ($ideaText !== '') {
+            $brief = "IDEIA VALIDADA:\n{$ideaText}\n\n" . $brief;
         }
 
         return $base . "\n\n" . $state . $brief . $tech . "\n" . $content . "PROIBIDO MARKDOWN, SEMPRE MANDAR EM HTML\n";
@@ -3381,5 +3547,47 @@ class AlphaSuite_Prompts
             . "    }\n"
             . "  ]\n"
             . "}\n";
+    }
+    private static function default_idea_prompt(): string
+    {
+        return
+            "Voce e um editor senior e deve criar um brief editorial curto, sem pesquisa externa.\n"
+            . "Use apenas a palavra-chave, o titulo e o contexto fornecidos.\n\n"
+            . "OBJETIVO:\n"
+            . "- Definir o angulo editorial do artigo.\n"
+            . "- Evitar um outline generico.\n"
+            . "- Preparar uma progressao logica de secoes.\n\n"
+            . "REGRAS:\n"
+            . "- Nao invente fatos externos.\n"
+            . "- Nao use frases vagas.\n"
+            . "- Cada section_plan precisa ter funcao clara.\n"
+            . "- Prefira titulos especificos, nao genericos.\n"
+            . "- Se houver conflito, priorize coerencia editorial e utilidade.\n\n"
+            . "SAIDA:\n"
+            . "- Responda apenas em JSON valido.\n"
+            . "- Entregue angle, intent, core_problem, reader_promise, tone, must_cover, avoid e section_plan.\n";
+    }
+
+    private static function default_idea_rss_prompt(): string
+    {
+        return
+            "Crie um brief editorial curto para uma noticia de RSS, sem pesquisa externa.\n"
+            . "Foque em preservar fatos, evitar exageros e organizar a progressao da materia.\n";
+    }
+
+    private static function default_idea_modelar_youtube_prompt(): string
+    {
+        return
+            "Crie um brief editorial curto baseado no material-base do YouTube.\n"
+            . "Use os capitulos e a descricao apenas como estrutura, sem citar a fonte.\n"
+            . "Entregue um angulo claro, a dor central e uma progressao de secoes que transforme o material em artigo nativo.\n";
+    }
+
+    private static function default_vistoria_prompt(): string
+    {
+        return
+            "Voce e um revisor editorial. Identifique genericidade, repeticoes e falta de coerencia.\n"
+            . "Se estiver tudo certo, responda apenas 'ok'.\n"
+            . "Se houver problema, responda com um resumo objetivo do que precisa ser corrigido.\n";
     }
 }

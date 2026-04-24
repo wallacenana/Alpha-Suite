@@ -676,13 +676,30 @@ class AlphaSuite_Pages_Generator
     update_post_meta($draft_id, '_pga_outline_url', $url);
     update_post_meta($draft_id, '_pga_chosen_title', $chosenTitle);
 
-    $outline = AlphaSuite_Outline::generate(
+    $idea = AlphaSuite_Outline::build_idea_brief(
       $template,
       $keyword,
       $chosenTitle,
       $length,
       $locale,
       $url
+    );
+
+    update_post_meta(
+      $draft_id,
+      '_pga_outline_idea',
+      wp_json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
+    $outline = AlphaSuite_Outline::generate(
+      $template,
+      $keyword,
+      $chosenTitle,
+      $length,
+      $locale,
+      $url,
+      '',
+      $idea,
     );
 
     if (is_wp_error($outline)) {
@@ -823,6 +840,11 @@ class AlphaSuite_Pages_Generator
     $keyword  = get_post_meta($post_id, '_pga_outline_keyword',  true) ?: '';
     $title    = get_post_meta($post_id, '_pga_chosen_title',     true) ?: $keyword;
     $url      = get_post_meta($post_id, '_pga_outline_url',      true) ?: '';
+    $idea_raw = get_post_meta($post_id, '_pga_outline_idea',     true) ?: '';
+    $idea     = is_string($idea_raw) ? json_decode($idea_raw, true) : [];
+    if (!is_array($idea)) {
+      $idea = [];
+    }
 
     if ($keyword === '') {
       return new WP_Error('pga_no_kw', 'Keyword vazia.');
@@ -865,6 +887,7 @@ class AlphaSuite_Pages_Generator
       $section_id,
       '',
       $url,
+      $idea,
     );
 
     $resp = AlphaSuite_AI::complete(

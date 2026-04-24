@@ -1365,7 +1365,7 @@ class AlphaSuite_RESTRSS
 
         $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
 
-        $outline = AlphaSuite_Outline::generate(
+        $idea = AlphaSuite_Outline::build_idea_brief(
             $template,
             '',
             $title,
@@ -1373,6 +1373,23 @@ class AlphaSuite_RESTRSS
             $locale,
             $url,
             $sourceContent
+        );
+
+        update_post_meta(
+            $postId,
+            '_pga_outline_idea',
+            wp_json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+
+        $outline = AlphaSuite_Outline::generate(
+            $template,
+            '',
+            $title,
+            $length,
+            $locale,
+            $url,
+            $sourceContent,
+            $idea
         );
 
         if (is_wp_error($outline)) {
@@ -1662,6 +1679,11 @@ class AlphaSuite_RESTRSS
         */
 
         $template = get_post_meta($postId, '_pga_template_key', true) ?: 'rss';
+        $idea_raw = get_post_meta($postId, '_pga_outline_idea', true) ?: '';
+        $idea = is_string($idea_raw) ? json_decode($idea_raw, true) : [];
+        if (!is_array($idea)) {
+            $idea = [];
+        }
 
 
         $prompt = AlphaSuite_Prompts::build_section_prompt(
@@ -1674,7 +1696,8 @@ class AlphaSuite_RESTRSS
             $sectionsCount,
             (string)$index,
             '',
-            $url
+            $url,
+            $idea
         );
 
         // 🔥 adiciona instrução de link ao final

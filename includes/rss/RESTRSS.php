@@ -625,38 +625,22 @@ class AlphaSuite_RESTRSS
 
 
         if (!$attachmentId || is_wp_error($attachmentId)) {
-            if (!class_exists('AlphaSuite_Prompts') || !class_exists('AlphaSuite_Images')) {
-                return false;
-            }
+            $result = alpha_suite_generate_image([
+                'target'         => 'rss',
+                'post_id'        => intval($postId),
+                'title'          => $title,
+                'keyword'        => $title,
+                'content'        => (string)$content,
+                'template'       => $template,
+                'alt'            => $image_alt,
+                'image_provider' => class_exists('AlphaSuite_AI') ? AlphaSuite_AI::get_image_provider() : 'pollinations',
+            ]);
 
-            $imageProvider = class_exists('AlphaSuite_AI')
-                ? AlphaSuite_AI::get_image_provider()
-                : 'pollinations';
-
-            $meta_img_prompt = AlphaSuite_Prompts::build_image_prompt(
-                $title,
-                $title,
-                '',
-                $template,
-                $imageProvider
-            );
-
-            $img_prompt = $meta_img_prompt;
-
-            if (class_exists('AlphaSuite_AI')) {
-                $resolved = AlphaSuite_AI::image_prompt($meta_img_prompt, []);
-                if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
-                    $img_prompt = trim($resolved);
+            if (!is_wp_error($result)) {
+                $attachmentId = (int)($result['attachment_id'] ?? 0);
+                if (!empty($result['prompt'])) {
+                    update_post_meta($postId, '_pga_image_prompt', (string)$result['prompt']);
                 }
-            }
-
-            if ($img_prompt) {
-
-                $attachmentId = AlphaSuite_Images::generate_by_settings(
-                    $img_prompt,
-                    intval($postId),
-                    $image_alt
-                );
             }
         }
 

@@ -34,6 +34,7 @@ require_once PGA_PATH . "includes/tracker/REST_tracker.PHP";
 require_once PGA_PATH . "includes/OutlineGenerator.php";
 require_once PGA_PATH . "includes/TitleGenerator.php";
 require_once PGA_PATH . "includes/MetaDescriptionGenerator.php";
+require_once PGA_PATH . "includes/ImageGenerator.php";
 
 // Versão de asset por filemtime (cache-bust)
 function alpha_suite_asset_ver(string $relpath): string

@@ -153,7 +153,7 @@ class AlphaSuite_StoriesRest
             ];
         }
 
-        $page   = $pages[$index];
+        $page = $pages[$index];
         $prompt = isset($page['prompt']) ? trim((string)$page['prompt']) : '';
 
         if ($prompt === '') {
@@ -161,18 +161,22 @@ class AlphaSuite_StoriesRest
         }
 
         $alt = !empty($page['heading']) ? $page['heading'] : $prompt;
-        // Usa o sistema global (decide OpenAI/Pollinations etc.)
-        $att_id = AlphaSuite_Images::generate_story_by_settings(
-            $prompt,
-            $post_id,
-            $alt
-        );
+        $result = alpha_suite_generate_image([
+            'target'   => 'story',
+            'story_id' => $post_id,
+            'post_id'  => $post_id,
+            'prompt'   => $prompt,
+            'alt'      => $alt,
+        ]);
 
-        if (is_wp_error($att_id)) {
-            return $att_id;
+        if (is_wp_error($result)) {
+            return $result;
         }
 
-        $att_id = (int) $att_id;
+        $att_id = (int)($result['attachment_id'] ?? 0);
+        if ($att_id <= 0) {
+            return new \WP_Error('pga_story_image', 'Falha ao gerar imagem.');
+        }
 
         // resolve URL e salva no array de páginas
         $img_url = wp_get_attachment_image_url($att_id, 'alpha_storys_slide');

@@ -123,33 +123,21 @@ class AlphaSuite_CPT_Posts_Orion
         $meta_prompt = $raw_prompt;
       }
 
-      // 2) IA de TEXTO gera o PROMPT FINAL DE IMAGEM
-      $final_prompt = $meta_prompt;
+      $result = alpha_suite_generate_image([
+        'target'         => 'orion',
+        'post_id'        => $post_id,
+        'title'          => $title,
+        'content'        => $content,
+        'prompt'         => $raw_prompt !== '' ? $raw_prompt : $meta_prompt,
+        'alt'            => $title,
+        'image_provider' => $imageProvider,
+      ]);
 
-      if (class_exists('AlphaSuite_AI') && $raw_prompt === '') {
-        // aqui ele vai usar openai/gemini conforme get_text_provider ou args
-        $resolved = AlphaSuite_AI::image_prompt($meta_prompt, []);
-
-        if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
-          $final_prompt = $resolved;
-        }
+      if (is_wp_error($result)) {
+        wp_send_json_error($result->get_error_message());
       }
 
-      if (!class_exists('AlphaSuite_Images')) {
-        wp_send_json_error('Classe de imagem ausente.');
-      }
-
-      // 3) Gera a thumbnail com o provider de IMAGEM configurado
-      $thumb_id = AlphaSuite_Images::generate_by_settings(
-        $final_prompt,
-        $post_id
-      );
-
-      if (is_wp_error($thumb_id)) {
-        wp_send_json_error($thumb_id->get_error_message());
-      }
-
-      $thumb_id = (int) $thumb_id;
+      $thumb_id = (int)($result['attachment_id'] ?? 0);
       if ($thumb_id <= 0) {
         wp_send_json_error('Falha ao gerar a nova thumbnail.');
       }

@@ -437,210 +437,49 @@ class AlphaSuite_REST_Ws_Generator
             }
             $provider = strtolower(trim($provider));
 
-            // Se for banco, retornamos 3 opções (sem salvar nada)
+            // Se for banco, o helper já resolve seleção, opções e sideload
             if ($provider === 'pexels') {
-
-                if (!class_exists('AlphaSuite_Settings')) {
-                    return new \WP_Error('pga_pexels_no_cfg', 'Configurações não encontradas.', ['status' => 500]);
-                }
-
-                $opts = AlphaSuite_Settings::get();
-                $api  = $opts['apis']['pexels'] ?? [];
-                $key  = trim((string)($api['key'] ?? ''));
-
-                if ($key === '') {
-                    return new \WP_Error('pga_pexels_no_key', 'Chave Pexels não configurada.', ['status' => 400]);
-                }
-
-                // ✅ NOVO: se veio pick_url (ou pick_id) => baixa + salva no WP + grava no slide
-                $pick_url = trim((string)($p['pick_url'] ?? ''));
-                $auto     = !empty($p['auto']); // opcional p/ bulk: escolher o 1º automaticamente
-
-                // se não veio pick_url e auto=1, vamos buscar opções e escolher a primeira
-                if ($pick_url === '') {
-
-                    // query curta p/ banco
-                    $query = $ctx;
-
-                    if (class_exists('AlphaSuite_Prompts') && method_exists('AlphaSuite_Prompts', 'build_image_prompt')) {
-
-                        if ($tit || $desc)
-                            $meta = AlphaSuite_Prompts::build_ws_slide_image_prompt($tit, $desc, $provider);
-                        else
-                            $meta = AlphaSuite_Prompts::build_image_prompt('ws_generator', '', '', 'en', 'pexels');
-
-                        $schema = ['content' => 'string'];
-                        if (class_exists('AlphaSuite_AI')) {
-                            $ai = AlphaSuite_AI::complete(
-                                $meta,
-                                $schema,
-                                [
-                                    'format'            => 'stories'
-                                ],
-                            );
-
-                            if (!is_wp_error($ai)) {
-
-                                $q = trim((string)($ai['content'] ?? ''));
-                                if ($q !== '') $query = $q;
-                            }
-                        }
-                    }
-
-                    $endpoint = add_query_arg(
-                        [
-                            'query'       => $query,
-                            'per_page'    => 3,
-                            'page'        => 1,
-                            'orientation' => 'portrait',
-                        ],
-                        'https://api.pexels.com/v1/search'
-                    );
-
-                    $res = wp_remote_get($endpoint, [
-                        'timeout' => 30,
-                        'headers' => ['Authorization' => $key],
-                    ]);
-
-                    if (is_wp_error($res)) return $res;
-
-                    $code = wp_remote_retrieve_response_code($res);
-                    $bodyJson = wp_remote_retrieve_body($res);
-
-                    if ($code < 200 || $code >= 300 || !$bodyJson) {
-                        return new \WP_Error('pga_pexels_http', "Erro HTTP {$code} no Pexels.", ['status' => 500]);
-                    }
-
-                    $json = json_decode($bodyJson, true);
-                    $photos = $json['photos'] ?? [];
-
-                    if (!is_array($photos) || empty($photos)) {
-                        return new \WP_Error('pga_pexels_empty', 'Nenhuma imagem encontrada no Pexels.', ['status' => 404]);
-                    }
-
-                    // usados por story (evita repetir imagem no mesmo story)
-                    $used = get_post_meta($story_id, '_pga_ws_used_pexels', true);
-                    if (!is_array($used)) $used = ['ids' => [], 'urls' => []];
-
-                    $used_ids  = array_map('intval', (array)($used['ids'] ?? []));
-                    $used_urls = array_map('strval', (array)($used['urls'] ?? []));
-
-                    $options = [];
-
-                    foreach (array_slice(array_values($photos), 0, 10) as $ph) { // pega mais que 3 pra ter margem
-                        $pid = isset($ph['id']) ? (int)$ph['id'] : 0;
-                        $src = $ph['src'] ?? [];
-
-                        $thumb = $src['medium'] ?? $src['small'] ?? $src['tiny'] ?? ($src['portrait'] ?? ($src['large'] ?? ''));
-                        $full  = $src['portrait'] ?? $src['large2x'] ?? $src['large'] ?? $src['original'] ?? '';
-
-                        if (!$pid || !$full) continue;
-
-                        // pula se já foi usada
-                        if (in_array($pid, $used_ids, true)) continue;
-                        if (in_array((string)$full, $used_urls, true)) continue;
-
-                        $options[] = ['id' => $pid, 'thumb' => (string)$thumb, 'full' => (string)$full];
-                        if (count($options) >= 3) break;
-                    }
-
-
-                    if (empty($options)) {
-                        return new \WP_Error('pga_pexels_no_options', 'Não foi possível montar opções de imagem.', ['status' => 500]);
-                    }
-
-                    update_post_meta($story_id, '_pga_ws_last_image_options_' . $index, $options);
-
-                    // ✅ auto=1: escolhe a primeira opção NÃO usada
-                    if ($auto) {
-
-                        $pick = null;
-
-                        foreach ($options as $op) {
-                            $pid  = (int)($op['id'] ?? 0);
-                            $full = (string)($op['full'] ?? '');
-
-                            if (!$pid || $full === '') continue;
-
-                            if (in_array($pid, $used_ids, true)) continue;
-                            if (in_array($full, $used_urls, true)) continue;
-
-                            $pick = $op;
-                            break;
-                        }
-
-                        // se todas já foram usadas, cai no fallback: pega a primeira mesmo (ou você pode tentar page=2)
-                        if (!$pick) {
-                            $pick = $options[0] ?? null;
-                        }
-
-                        $pick_url = (string)($pick['full'] ?? '');
-                        if ($pick_url === '') {
-                            return new \WP_Error('pga_pexels_no_pick', 'Não foi possível escolher imagem automaticamente.', ['status' => 500]);
-                        }
-
-                        // guarda pra marcar como usado depois do sideload
-                        $picked_pid = (int)($pick['id'] ?? 0);
-                    } else {
-                        // modo normal: devolve opções para o JS escolher
-                        return rest_ensure_response([
-                            'ok'       => true,
-                            'mode'     => 'pick',
-                            'index'    => $index,
-                            'provider' => 'pexels',
-                            'options'  => $options,
-                            'query'    => $query,
-                        ]);
-                    }
-                }
-
-                // ✅ DAQUI PRA BAIXO: download + sideload + grava no slide
-                require_once ABSPATH . 'wp-admin/includes/file.php';
-                require_once ABSPATH . 'wp-admin/includes/media.php';
-                require_once ABSPATH . 'wp-admin/includes/image.php';
-
-                $tmp = download_url($pick_url, 30);
-                if (is_wp_error($tmp)) {
-                    return new \WP_Error('pga_pexels_download', 'Falha ao baixar imagem do Pexels.', ['status' => 500]);
-                }
-
-                $filename = basename(wp_parse_url($pick_url, PHP_URL_PATH) ?: 'pexels.jpg');
-                if (!preg_match('/\.(jpg|jpeg|png|webp)$/i', $filename)) {
-                    $filename .= '.jpg';
-                }
-
-                $file_array = [
-                    'name'     => sanitize_file_name($filename),
-                    'tmp_name' => $tmp,
-                ];
-
-                $alt = $heading !== '' ? $heading : $ctx;
-
-                $att_id = media_handle_sideload($file_array, $story_id, $alt);
-                if (is_wp_error($att_id)) {
-                    wp_delete_file($tmp);
-                    return $att_id;
-                }
-
-                // marca como usada (por story) — evita repetir nos próximos slides
-                if (!empty($picked_pid)) $used_ids[] = (int)$picked_pid;
-                if (!empty($pick_url))   $used_urls[] = (string)$pick_url;
-
-                $used_ids  = array_values(array_unique(array_map('intval', $used_ids)));
-                $used_urls = array_values(array_unique(array_map('strval', $used_urls)));
-
-                update_post_meta($story_id, '_pga_ws_used_pexels', [
-                    'ids'  => $used_ids,
-                    'urls' => $used_urls,
+                $result = alpha_suite_generate_image([
+                    'target'       => 'ws_slide',
+                    'story_id'     => $story_id,
+                    'post_id'      => $story_id,
+                    'index'        => $index,
+                    'title'        => $tit,
+                    'desc'         => $desc,
+                    'brief'        => $brief,
+                    'prompt'       => $ctx,
+                    'alt'          => $heading !== '' ? $heading : $ctx,
+                    'allow_pick'   => true,
+                    'auto_pick'    => !empty($p['auto']),
+                    'pick_url'     => trim((string)($p['pick_url'] ?? '')),
+                    'context'      => 'story',
+                    'image_provider' => 'pexels',
                 ]);
 
-                $att_id = (int)$att_id;
-                $img_url = wp_get_attachment_image_url($att_id, 'full') ?: '';
+                if (is_wp_error($result)) {
+                    return $result;
+                }
+
+                if (($result['mode'] ?? '') === 'pick') {
+                    return rest_ensure_response([
+                        'ok'       => true,
+                        'mode'     => 'pick',
+                        'index'    => $index,
+                        'provider' => 'pexels',
+                        'options'  => $result['options'] ?? [],
+                        'query'    => $result['query'] ?? '',
+                    ]);
+                }
+
+                $att_id = (int)($result['attachment_id'] ?? 0);
+                $img_url = (string)($result['image_url'] ?? '');
+                if ($att_id <= 0) {
+                    return new \WP_Error('pga_ws_images_missing', 'Falha ao gerar imagem.', ['status' => 500]);
+                }
 
                 $pages[$index]['image_id']  = $att_id;
                 $pages[$index]['image_url'] = $img_url;
                 $pages[$index]['image']     = $img_url;
-
                 update_post_meta($story_id, '_pga_ws_pages', $pages);
 
                 return rest_ensure_response([
@@ -650,20 +489,31 @@ class AlphaSuite_REST_Ws_Generator
                     'index'     => $index,
                     'image_id'  => $att_id,
                     'image_url' => $img_url,
-                    'pick_url'  => $pick_url,
+                    'pick_url'  => trim((string)($p['pick_url'] ?? '')),
                 ]);
-            }
-
-            if (!class_exists('AlphaSuite_Images')) {
-                return new \WP_Error('pga_ws_images_missing', 'AlphaSuite_Images ausente.', ['status' => 500]);
             }
 
             $alt = $heading !== '' ? $heading : $ctx;
 
-            $att_id = AlphaSuite_Images::generate_story_by_settings($ctx, $story_id, $alt);
-            if (is_wp_error($att_id)) return $att_id;
+            $result = alpha_suite_generate_image([
+                'target'   => 'ws_slide',
+                'story_id' => $story_id,
+                'post_id'  => $story_id,
+                'title'    => $heading,
+                'desc'     => $body,
+                'brief'    => $brief,
+                'prompt'   => $ctx,
+                'alt'      => $alt,
+                'context'  => 'story',
+            ]);
 
-            $att_id = (int)$att_id;
+            if (is_wp_error($result)) return $result;
+
+            $att_id = (int)($result['attachment_id'] ?? 0);
+            if ($att_id <= 0) {
+                return new \WP_Error('pga_ws_images_missing', 'Falha ao gerar imagem.', ['status' => 500]);
+            }
+
             $img_url = wp_get_attachment_image_url($att_id, 'full') ?: '';
 
             $pages[$index]['image_id']  = $att_id;

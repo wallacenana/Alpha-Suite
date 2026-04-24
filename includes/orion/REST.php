@@ -413,67 +413,36 @@ class AlphaSuite_REST
                 : 'pollinations';
         }
 
-        // 1) META-PROMPT vindo do Prompts.php (AGORA COM PROVIDER)
-        if (!class_exists('AlphaSuite_Prompts')) {
-            return new WP_Error('pga_prompts_missing', 'Classe de prompts não encontrada.', ['status' => 500]);
-        }
+        $result = alpha_suite_generate_image([
+            'target'        => 'orion',
+            'post_id'       => $post_id,
+            'keyword'       => $keyword,
+            'title'         => $title,
+            'content'       => get_post_field('post_content', $post_id) ?: '',
+            'locale'        => $locale,
+            'template'      => $template,
+            'alt'           => $image_alt,
+            'image_provider'=> $imageProvider,
+        ]);
 
-        $meta_img_prompt = AlphaSuite_Prompts::build_image_prompt(
-            $keyword,
-            $title,
-            $locale,
-            $template,
-            $imageProvider
-        );
-
-        $img_prompt = '';
-
-        // 2) IA de TEXTO refina o meta-prompt em prompt final de imagem
-        if ($meta_img_prompt !== '' && class_exists('AlphaSuite_AI')) {
-            $resolved = AlphaSuite_AI::image_prompt($meta_img_prompt, []);
-
-            if (!is_wp_error($resolved) && is_string($resolved) && $resolved !== '') {
-                $img_prompt = trim($resolved);
-            }
-        }
-
-        // fallback: se IA falhar, usa o meta-prompt mesmo
-        if ($img_prompt === '') {
-            $img_prompt = $meta_img_prompt;
-        }
-
-        if ($img_prompt === '') {
-            return new WP_Error(
-                'pga_img_prompt_empty',
-                __('Não foi possível montar o prompt de imagem.', 'alpha-suite'),
-                ['status' => 500]
-            );
-        }
-
-        if (!class_exists('AlphaSuite_Images')) {
-            return new WP_Error('pga_images_missing', 'Classe de imagens não encontrada.', ['status' => 500]);
-        }
-
-        // 3) Gera thumb usando o PROVIDER DE IMAGEM configurado
-        $thumb_id = AlphaSuite_Images::generate_by_settings(
-            $img_prompt,
-            $post_id,
-            $image_alt
-        );
-
-        if (is_wp_error($thumb_id) || !$thumb_id) {
+        if (is_wp_error($result)) {
             return new WP_Error(
                 'pga_img_fail',
-                is_wp_error($thumb_id) ? $thumb_id->get_error_message() : 'Falha ao gerar imagem.',
+                $result->get_error_message(),
                 ['status' => 500]
             );
+        }
+
+        $thumb_id = (int)($result['attachment_id'] ?? 0);
+        if ($thumb_id <= 0) {
+            return new WP_Error('pga_img_fail', 'Falha ao gerar imagem.', ['status' => 500]);
         }
 
         // define thumbnail do post
         set_post_thumbnail($post_id, $thumb_id);
 
         // guarda metadados pra referência
-        update_post_meta($post_id, '_pga_image_prompt',   $img_prompt);
+        update_post_meta($post_id, '_pga_image_prompt',   (string)($result['prompt'] ?? ''));
         update_post_meta($post_id, '_pga_image_provider', $imageProvider);
         update_post_meta($post_id, '_pga_image_alt',      $image_alt);
 

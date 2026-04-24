@@ -38,64 +38,37 @@ class AlphaSuite_Outline
             );
         }
 
-        $attempts = [
+        $outline = AlphaSuite_AI::complete(
             $prompt,
-            "A resposta anterior estava fora do formato. Retorne somente JSON UTF-8 válido, sem markdown, sem blocos de código e sem texto extra.\n\n" . $prompt,
-        ];
-
-        $last_error = null;
-        $parsed = null;
-
-        foreach ($attempts as $attempt_index => $attempt_prompt) {
-            $outline = AlphaSuite_AI::complete(
-                $attempt_prompt,
-                ['sections' => 'array'],
-                [
-                    'template' => 'outline',
-                ]
-            );
-
-            if (is_wp_error($outline)) {
-                $last_error = $outline;
-                continue;
-            }
-
-            $parsed = AlphaSuite_AI::decode_json_payload($outline);
-            if (!is_array($parsed)) {
-                $last_error = new WP_Error(
-                    'invalid_outline_json',
-                    $attempt_index === 0
-                        ? 'Erro ao decodificar JSON do outline.'
-                        : 'Erro ao decodificar JSON do outline após nova tentativa.',
-                    [
-                        'snippet' => is_string($outline) ? mb_substr($outline, 0, 800) : '',
-                    ]
-                );
-                continue;
-            }
-
-            $sections = self::extract_sections($parsed, $length);
-            if (is_wp_error($sections)) {
-                $last_error = $sections;
-                continue;
-            }
-
-            return [
-                'sections' => $sections,
-            ];
-        }
-
-        if (is_wp_error($last_error)) {
-            return $last_error;
-        }
-
-        return new WP_Error(
-            'invalid_outline_json',
-            'Erro ao decodificar JSON do outline.',
+            ['sections' => 'array'],
             [
-                'snippet' => is_string($parsed) ? mb_substr($parsed, 0, 800) : '',
+                'template' => 'outline',
             ]
         );
+
+        if (is_wp_error($outline)) {
+            return $outline;
+        }
+
+        $parsed = AlphaSuite_AI::decode_json_payload($outline);
+        if (!is_array($parsed)) {
+            return new WP_Error(
+                'invalid_outline_json',
+                'Erro ao decodificar JSON do outline.',
+                [
+                    'snippet' => is_string($outline) ? mb_substr($outline, 0, 800) : '',
+                ]
+            );
+        }
+
+        $sections = self::extract_sections($parsed, $length);
+        if (is_wp_error($sections)) {
+            return $sections;
+        }
+
+        return [
+            'sections' => $sections,
+        ];
     }
 
     private static function extract_sections(array $outline, string $length)

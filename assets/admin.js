@@ -2372,6 +2372,7 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
   async function executarFila(jobs) {
     const total = jobs.length;
     const postsGerados = [];
+    const falhas = [];
 
     Swal.fire({
       title: 'Gerando conteúdos',
@@ -2400,18 +2401,30 @@ const sprintf = (window.wp && wp.i18n && wp.i18n.sprintf)
 
       onStatus(`Iniciando post ${i + 1} de ${total}…`);
 
-      const res = await gerarPost(job, onStatus);
+      try {
+        const res = await gerarPost(job, onStatus);
 
-      document.getElementById('pga-progress-main').innerText =
-        `${i + 1} de ${total} posts`;
+        document.getElementById('pga-progress-main').innerText =
+          `${i + 1} de ${total} posts`;
 
-      marcarKeywordComoDone(job.keyword, job.boxEl);
+        marcarKeywordComoDone(job.keyword, job.boxEl);
 
-      if (res?.post_id) {
-        postsGerados.push({
-          post_id: res.post_id,
-          title: res.title || job.keyword
+        if (res?.post_id) {
+          postsGerados.push({
+            post_id: res.post_id,
+            title: res.title || job.keyword
+          });
+        }
+      } catch (err) {
+        console.error('Falha ao gerar job:', job, err);
+        falhas.push({
+          keyword: job.keyword,
+          error: err?.message || 'Erro inesperado.'
         });
+        document.getElementById('pga-progress-main').innerText =
+          `${i + 1} de ${total} posts`;
+        document.getElementById('pga-progress-stage').innerText =
+          `Falha em "${job.keyword}". Continuando...`;
       }
 
     }

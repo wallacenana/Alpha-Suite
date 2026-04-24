@@ -1090,8 +1090,8 @@ class AlphaSuite_REST_Ws_Generator
                     $content_txt = $post_title !== '' ? $post_title : '(conteúdo vazio)';
                 }
 
-                // 1) 1 prompt só (meta + pages)
-                $prompt = AlphaSuite_Prompts::build_ws_story_prompt([
+                $ai_raw = alpha_suite_generate_outline([
+                    'target'           => 'ws_story',
                     'slidesCount'      => $slidesCount,
                     'locale'           => $locale,
                     'title'            => $post_title,
@@ -1099,24 +1099,10 @@ class AlphaSuite_REST_Ws_Generator
                     'cta_pages'        => $cta_pages,
                     'cta_text_default' => 'Saiba mais',
                     'cta_url_default'  => get_permalink($pid) ?: '',
+                    'temperature'      => 0.15,
+                    'top_p'            => 0.7,
+                    'max_tokens'       => 1800,
                 ]);
-
-                $schema = [
-                    'title' => 'string',
-                    'desc'  => 'string',
-                    'slug'  => 'string',
-                    'pages' => 'array',
-                ];
-
-                $ai_raw = AlphaSuite_AI::complete(
-                    $prompt,
-                    $schema,
-                    [
-                        'temperature' => 0.15,
-                        'top_p'       => 0.7,
-                        'max_tokens'  => 1800,
-                    ]
-                );
 
                 if (is_wp_error($ai_raw)) {
                     return new WP_Error(
@@ -1125,33 +1111,9 @@ class AlphaSuite_REST_Ws_Generator
                         ['status' => 500]
                     );
                 }
-
-                if (!is_array($ai_raw)) {
-                    return new WP_Error('pga_ws_badjson', 'Resposta inválida da IA.', ['status' => 500]);
-                }
-
-                // 1) caso já seja o objeto final
-                if (isset($ai_raw['title']) || isset($ai_raw['pages'])) {
-                    $obj = $ai_raw;
-
-                    // 2) caso venha embrulhado em content
-                } elseif (isset($ai_raw['content'])) {
-                    if (is_array($ai_raw['content'])) {
-                        $obj = $ai_raw['content'];
-                    } else {
-                        $obj = json_decode((string)$ai_raw['content'], true);
-                    }
-                } else {
-                    return new WP_Error('pga_ws_badjson', 'Resposta inválida da IA.', ['status' => 500]);
-                }
-
-                // 3) 🔥 DESEMBRULHA SE AINDA VEIO content DENTRO
-                if (is_array($obj) && isset($obj['content']) && is_array($obj['content'])) {
-                    $obj = $obj['content'];
-                }
-
-                if (!is_array($obj)) {
-                    return new WP_Error('pga_ws_badjson', 'JSON inválido (story).', ['status' => 500]);
+                $obj = alpha_suite_outline_extract_story_object($ai_raw);
+                if (is_wp_error($obj)) {
+                    return new WP_Error('pga_ws_badjson', $obj->get_error_message(), ['status' => 500]);
                 }
 
                 // meta

@@ -1381,16 +1381,16 @@ class AlphaSuite_RESTRSS
             wp_json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         );
 
-        $outline = AlphaSuite_Outline::generate(
-            $template,
-            '',
-            $title,
-            $length,
-            $locale,
-            $url,
-            $sourceContent,
-            $idea
-        );
+        $outline = alpha_suite_generate_outline([
+            'target'   => 'rss',
+            'template' => $template,
+            'title'    => $title,
+            'length'   => $length,
+            'locale'   => $locale,
+            'url'      => $url,
+            'content'  => $sourceContent,
+            'idea'     => $idea,
+        ]);
 
         if (is_wp_error($outline)) {
             return AlphaSuite_FailJob::fail_job($postId, $outline);

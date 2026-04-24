@@ -31,6 +31,7 @@ if (!defined('PGA_INC_STORYS_DIR')) define('PGA_INC_STORYS_DIR', PGA_INC_DIR . '
 if (!defined('PGA_INC_TRACKER_DIR')) define('PGA_INC_TRACKER_DIR', PGA_INC_DIR . '/tracker');
 
 require_once PGA_PATH . "includes/tracker/REST_tracker.PHP";
+require_once PGA_PATH . "includes/OutlineGenerator.php";
 
 // Versão de asset por filemtime (cache-bust)
 function alpha_suite_asset_ver(string $relpath): string

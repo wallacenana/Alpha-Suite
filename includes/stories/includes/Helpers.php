@@ -293,16 +293,15 @@ class AlphaSuite_Helpers
 
     $lang = (string) $stories['language'];
 
-    // 1) Monta o prompt via central de prompts, passando o provider
-    $prompt = AlphaSuite_Prompts::build_story_prompt_for_post(
-      $post,
-      $raw_html,
-      $brief,
-      $imageProvider,
-      $lang
-    );
-
-    $result = AlphaSuite_AI::generate_story_pages($prompt, []);
+    $result = alpha_suite_generate_outline([
+      'target'        => 'alpha_story',
+      'post'          => $post,
+      'raw_html'      => $raw_html,
+      'brief'         => $brief,
+      'imageProvider' => $imageProvider,
+      'lang'          => $lang,
+      'provider'      => (class_exists('AlphaSuite_AI') ? AlphaSuite_AI::get_story_text_provider() : 'openai'),
+    ]);
 
     if (is_wp_error($result)) {
       return $result;

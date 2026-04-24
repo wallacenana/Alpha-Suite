@@ -691,16 +691,16 @@ class AlphaSuite_Pages_Generator
       wp_json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     );
 
-    $outline = AlphaSuite_Outline::generate(
-      $template,
-      $keyword,
-      $chosenTitle,
-      $length,
-      $locale,
-      $url,
-      '',
-      $idea,
-    );
+    $outline = alpha_suite_generate_outline([
+      'target'   => 'orion',
+      'template' => $template,
+      'keyword'  => $keyword,
+      'title'    => $chosenTitle,
+      'length'   => $length,
+      'locale'   => $locale,
+      'url'      => $url,
+      'idea'     => $idea,
+    ]);
 
     if (is_wp_error($outline)) {
       return AlphaSuite_FailJob::fail_job($draft_id, $outline);

@@ -1,0 +1,466 @@
+/* frame */
+.pga-ws-story-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .12);
+    padding: 40px 15px;
+    box-sizing: border-box;
+    display: flex;
+}
+
+/* imagem */
+.pga-frame-img {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: saturate(1.05);
+    transform: scale(1.01);
+    background-size: cover;
+}
+
+/* overlay base (muda por skin) */
+.pga-ws-story-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, .55), rgba(0, 0, 0, .12) 55%, rgba(0, 0, 0, 0));
+}
+
+/* conteúdo (muda por template e skin) */
+.pga-ws-frame-content {
+    width: 100%;
+    box-sizing: border-box;
+    color: #fff;
+    position: relative;
+    z-index: 99;
+}
+
+.pga-ws-frame-title {
+    margin: 0 0 8px 0;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    font-size: 30px;
+    text-wrap: balance;
+}
+
+.pga-ws-frame-text {
+    margin: 0;
+    line-height: 1.35;
+    font-size: 1rem;
+    opacity: .95;
+}
+
+.pga-ws-frame-divider {
+    width: 56px;
+    height: 3px;
+    border-radius: 999px;
+    margin: 10px 0 10px 0;
+    background: rgba(255, 255, 255, .85);
+}
+
+/* =========================================================
+   TEMPLATES (layout/estrutura)
+   - template-1: conteúdo em baixo (clássico)
+   - template-2: bloco central com card
+   - template-3: topo com headline (editorial)
+   ========================================================= */
+
+.template-1 {
+    align-items: flex-end;
+}
+
+.template-2 {
+    align-items: center;
+}
+
+.template-3 {
+    align-items: start;
+}
+
+.template-2::before {
+    /* overlay mais suave no meio */
+    background: radial-gradient(circle at 50% 65%, rgba(0, 0, 0, .55), rgba(0, 0, 0, .12) 55%, rgba(0, 0, 0, 0));
+}
+
+.template-2 .pga-ws-frame-divider {
+    width: 42px;
+    height: 3px;
+    opacity: .9;
+}
+
+.template-3::before {
+    /* overlay mais forte em cima */
+    background: linear-gradient(to bottom, rgba(0, 0, 0, .60), rgba(0, 0, 0, .10) 55%, rgba(0, 0, 0, 0));
+}
+
+.template-3 .pga-ws-frame-content {
+    left: 0;
+    top: 16px;
+}
+
+.template-3 .pga-ws-frame-text {
+    opacity: .9;
+}
+
+/* =========================================================
+   SKINS (theme-*)
+   A skin altera tipografia, overlays, badge, divider, etc.
+   Aplica via: #frames-container.theme-news ...
+   ========================================================= */
+
+/* -------------------------
+   THEME: NORMAL (clean, neutro)
+   ------------------------- */
+#frames-container.theme-normal .pga-ws-story-frame {
+    border: 1px solid rgba(0, 0, 0, .08);
+}
+
+#frames-container.theme-normal .pga-ws-frame-title {
+    font-weight: 850;
+    color: #fff;
+}
+
+#frames-container.theme-normal .pga-ws-frame-divider {
+    background: rgba(255, 255, 255, .9);
+}
+
+/* -------------------------
+   THEME: NEWSROOM (editorial, jornal)
+   - mais contraste, "faixa" editorial, título mais sério
+   ------------------------- */
+#frames-container.theme-news .pga-frame-img {
+    filter: grayscale(.12) contrast(1.12) saturate(.85);
+}
+
+#frames-container.theme-news .pga-ws-story-frame::before {
+    background:
+        linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, .22) 55%, rgba(0, 0, 0, 0)),
+        linear-gradient(to bottom, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 45%);
+}
+
+#frames-container.theme-news .pga-ws-frame-title {
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    text-transform: none;
+    color: #fff;
+}
+
+#frames-container.theme-news .pga-ws-frame-text {
+    font-size: 1rem;
+    opacity: .92;
+}
+
+#frames-container.theme-news .pga-ws-frame-divider {
+    width: 74px;
+    height: 4px;
+    background: rgba(255, 255, 255, .95);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+}
+
+/* -------------------------
+   THEME: DARK NEON (tech, glow)
+   - neon, borda luminosa, overlay colorido
+   ------------------------- */
+#frames-container.theme-dark .pga-ws-story-frame {
+    border: 1px solid rgba(255, 255, 255, .08);
+}
+
+#frames-container.theme-dark .pga-ws-story-frame::before {
+    background:
+        radial-gradient(circle at 30% 20%, rgba(0, 255, 255, .22), rgba(0, 0, 0, 0) 45%),
+        radial-gradient(circle at 70% 30%, rgba(168, 85, 247, .18), rgba(0, 0, 0, 0) 45%),
+        linear-gradient(to top, rgba(0, 0, 0, .78), rgba(0, 0, 0, .22) 55%, rgba(0, 0, 0, 0));
+}
+
+#frames-container.theme-dark .pga-frame-img {
+    filter: contrast(1.18) saturate(1.15);
+}
+
+#frames-container.theme-dark .pga-ws-frame-title {
+    font-weight: 900;
+    text-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+}
+
+#frames-container.theme-dark .pga-ws-frame-divider {
+    background: rgba(255, 255, 255, .9);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .22), 0 0 22px rgba(0, 255, 255, .25);
+}
+
+
+/* template-2 no dark vira vidro neon */
+#frames-container.theme-dark .pga-ws-frame-content h3 {
+    color: var(--pga-branco);
+}
+
+#frames-container.theme-dark .pga-ws-frame-content {
+    background: rgba(0, 0, 0, .30);
+    border: 1px solid rgba(0, 255, 255, .14);
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, .08), 0 18px 60px rgba(0, 0, 0, .35);
+    padding: 15px;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+}
+
+/* -------------------------
+   THEME: SOFT CLEAN (claro, minimal, “instagram clean”)
+   - overlay bem leve, texto escuro em “painel” claro
+   ------------------------- */
+#frames-container.theme-soft .pga-ws-story-frame {
+    border: 1px solid rgba(0, 0, 0, .06);
+}
+
+#frames-container.theme-soft .pga-ws-story-frame::before {
+    background: linear-gradient(to top, rgba(255, 255, 255, .88), rgba(255, 255, 255, .34) 55%, rgba(255, 255, 255, 0));
+}
+
+#frames-container.theme-soft .pga-ws-frame-content {
+    color: #0f172a;
+}
+
+#frames-container.theme-soft .pga-ws-frame-title {
+    font-weight: 900;
+}
+
+#frames-container.theme-soft .pga-ws-frame-text {
+    opacity: .88;
+}
+
+#frames-container.theme-soft .pga-ws-frame-divider {
+    background: rgba(15, 23, 42, .25);
+}
+
+/* no soft, template-1 e 3 ganham “painel” branco */
+#frames-container.theme-soft .pga-ws-frame-content,
+#frames-container.theme-soft .pga-ws-frame-content {
+    background: rgba(255, 255, 255, .78);
+    border: 1px solid rgba(15, 23, 42, .10);
+    border-radius: 16px;
+    padding: 14px 14px;
+    backdrop-filter: blur(10px);
+}
+
+/* template-2 no soft vira card ainda mais claro */
+#frames-container.theme-soft .pga-ws-frame-content {
+    background: rgba(255, 255, 255, .80);
+    border: 1px solid rgba(15, 23, 42, .10);
+}
+
+/* -------------------------
+   THEME: POP BOLD (vibrante, “cartaz”, alto impacto)
+   - cores fortes, stroke, badge grande
+   ------------------------- */
+#frames-container.theme-pop .pga-frame-img {
+    filter: saturate(1.35) contrast(1.08);
+}
+
+#frames-container.theme-pop .pga-ws-story-frame::before {
+    background:
+        linear-gradient(135deg, rgba(255, 0, 122, .20), rgba(0, 212, 255, .14) 50%, rgba(255, 214, 0, .12)),
+        linear-gradient(to top, rgba(0, 0, 0, .62), rgba(0, 0, 0, .12) 60%, rgba(0, 0, 0, 0));
+}
+
+#frames-container.theme-pop .pga-ws-frame-title {
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    text-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+    color: #fff;
+}
+
+#frames-container.theme-pop .pga-ws-frame-divider {
+    width: 92px;
+    height: 5px;
+    background: rgba(255, 255, 255, .95);
+}
+
+#frames-container.theme-pop .pga-ws-frame-text {
+    font-size: 1rem;
+    opacity: .95;
+}
+
+
+/* garante que o overlay exista em todos */
+.pga-ws-story-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* =========================================================
+   TEMPLATE-1
+   transparente em cima -> preto em baixo (no final do height)
+   ========================================================= */
+.template-1.pga-ws-story-frame::before,
+.template-1 .pga-ws-story-frame::before {
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0) 35%,
+            rgba(0, 0, 0, .85) 100%);
+    z-index: 99;
+}
+
+/* =========================================================
+   TEMPLATE-2
+   transparente em cima -> preto no centro -> transparente em baixo
+   (preto no centro do height)
+   ========================================================= */
+.template-2.pga-ws-story-frame::before,
+.template-2 .pga-ws-story-frame::before {
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0) 25%,
+            rgba(0, 0, 0, .78) 50%,
+            rgba(0, 0, 0, 0) 75%,
+            rgba(0, 0, 0, 0) 100%);
+    z-index: 99;
+}
+
+/* =========================================================
+   TEMPLATE-3
+   preto no topo -> transparente em baixo (no topo da página)
+   ========================================================= */
+.template-3.pga-ws-story-frame::before,
+.template-3 .pga-ws-story-frame::before {
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, .85) 0%,
+            rgba(0, 0, 0, .35) 30%,
+            rgba(0, 0, 0, 0) 65%,
+            rgba(0, 0, 0, 0) 100%);
+    z-index: 99;
+}
+
+
+/* CTA base */
+.pga-ws-story-frame .pga-ws-cta{
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: .01em;
+
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  user-select:none;
+  margin-top: 10px;
+}
+
+.pga-ws-cta.ws-cta-active{
+    display: inline-block!important
+}
+
+.pga-ws-story-frame .pga-ws-cta:hover{
+  transform: translateY(-1px);
+}
+
+#frames-container.theme-normal .pga-ws-cta{
+  background: rgba(255,255,255,.92);
+  color: rgba(15,23,42,.92);
+  border: 1px solid rgba(15,23,42,.14);
+  box-shadow: 0 12px 26px rgba(0,0,0,.18);
+}
+
+#frames-container.theme-normal .pga-ws-cta:hover{
+  box-shadow: 0 16px 34px rgba(0,0,0,.22);
+}
+
+/* template-1 normal: botão “padrão” */
+#frames-container.theme-normal .template-1 .pga-ws-cta{
+  padding: 10px 14px;
+}
+
+
+/* base newsroom: “tarja editorial” */
+#frames-container.theme-news .pga-ws-cta{
+  background: rgba(255,255,255,.96);
+  color: rgba(2,6,23,.95);
+  border: 1px solid rgba(255,255,255,.35);
+  box-shadow: 0 16px 34px rgba(0,0,0,.28);
+}
+
+/* template-1 newsroom: botão tipo “selo” com borda forte */
+#frames-container.theme-news .template-1 .pga-ws-cta{
+  border-radius: 10px;
+  padding: 10px 12px;
+  letter-spacing: .02em;
+  border: 1px solid rgba(2,6,23,.22);
+}
+
+
+#frames-container.theme-dark .pga-ws-cta{
+  background: rgba(0,0,0,.35);
+  color: rgba(255,255,255,.96);
+  border: 1px solid rgba(0,255,255,.22);
+  box-shadow: 0 0 0 1px rgba(168,85,247,.10), 0 18px 50px rgba(0,0,0,.40);
+  backdrop-filter: blur(10px);
+}
+
+#frames-container.theme-dark .pga-ws-cta:hover{
+  border-color: rgba(0,255,255,.34);
+  box-shadow: 0 0 0 1px rgba(168,85,247,.16), 0 0 26px rgba(0,255,255,.16), 0 18px 55px rgba(0,0,0,.45);
+}
+
+/* template-1 dark: botão “neon pill” */
+#frames-container.theme-dark .template-1 .pga-ws-cta{
+  padding: 10px 14px;
+}
+
+/* template-3 dark: tag pequena com glow */
+#frames-container.theme-dark .template-3 .pga-ws-cta{
+  padding: 8px 12px;
+  font-size: 16px;
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgba(0,255,255,.14), 0 12px 30px rgba(0,0,0,.35);
+}
+#frames-container.theme-soft .pga-ws-cta{
+  background: rgba(255,255,255,.92);
+  color: rgba(15,23,42,.92);
+  border: 1px solid rgba(15,23,42,.12);
+  box-shadow: 0 14px 30px rgba(0,0,0,.12);
+}
+
+/* template-1 soft: botão bem clean */
+#frames-container.theme-soft .template-1 .pga-ws-cta{
+  background: rgba(255,255,255,.95);
+}
+
+/* template-3 soft: tag discreta clara */
+#frames-container.theme-soft .template-3 .pga-ws-cta{
+  background: rgba(255,255,255,.78);
+  color: rgba(15,23,42,.92);
+  border-color: rgba(15,23,42,.10);
+  box-shadow: 0 10px 22px rgba(0,0,0,.10);
+}
+#frames-container.theme-pop .pga-ws-cta{
+  background: rgba(255,255,255,.95);
+  color: rgba(2,6,23,.96);
+  border: 2px solid rgba(0,0,0,.22);
+  box-shadow: 0 18px 38px rgba(0,0,0,.26);
+}
+
+/* template-1 pop: “sticker” */
+#frames-container.theme-pop .template-1 .pga-ws-cta{
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 950;
+}
+
+
+/* template-3 pop: tag preta no topo (alto contraste) */
+#frames-container.theme-pop .template-3 .pga-ws-cta{
+  background: rgba(0,0,0,.62);
+  color: rgba(255,255,255,.98);
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 14px 34px rgba(0,0,0,.30);
+}

@@ -401,10 +401,32 @@ class AlphaSuite_Helpers
     // 6) Renderiza blocos (se já tiver image_id, as imagens vão pros blocos também)
     $blocks = self::alpha_render_storys_pages_to_blocks($pages);
 
+    $story_title = get_post_field('post_title', $target_id) ?: get_the_title($post_id);
+    $story_title = trim((string)$story_title);
+    if ($story_title === '') {
+      $story_title = 'Web Story';
+    }
+
+    if (function_exists('alpha_suite_generate_title')) {
+      $generated_title = alpha_suite_generate_title([
+        'target'   => 'alpha_story',
+        'template' => 'article',
+        'keyword'  => $story_title,
+        'locale'   => (string) self::stories_opt('language', 'pt_BR'),
+        'url'      => $default_link ?: '',
+        'seed'     => $story_title,
+        'provider' => (class_exists('AlphaSuite_AI') ? AlphaSuite_AI::get_story_text_provider() : 'openai'),
+      ]);
+
+      if (is_string($generated_title) && trim($generated_title) !== '') {
+        $story_title = trim($generated_title);
+      }
+    }
+
     wp_update_post([
       'ID'           => $target_id,
       'post_content' => $blocks,
-      'post_title'   => get_post_field('post_title', $target_id) ?: get_the_title($post_id),
+      'post_title'   => $story_title,
     ]);
 
     $edit_url = get_edit_post_link($target_id, '');

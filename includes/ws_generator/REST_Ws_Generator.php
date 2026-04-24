@@ -1090,7 +1090,7 @@ class AlphaSuite_REST_Ws_Generator
                     $content_txt = $post_title !== '' ? $post_title : '(conteúdo vazio)';
                 }
 
-                $ai_raw = alpha_suite_generate_outline([
+                $obj = alpha_suite_generate_title([
                     'target'           => 'ws_story',
                     'slidesCount'      => $slidesCount,
                     'locale'           => $locale,
@@ -1104,16 +1104,12 @@ class AlphaSuite_REST_Ws_Generator
                     'max_tokens'       => 1800,
                 ]);
 
-                if (is_wp_error($ai_raw)) {
+                if (is_wp_error($obj)) {
                     return new WP_Error(
                         'pga_ws_ai_fail',
-                        $ai_raw->get_error_message(),
+                        $obj->get_error_message(),
                         ['status' => 500]
                     );
-                }
-                $obj = alpha_suite_outline_extract_story_object($ai_raw);
-                if (is_wp_error($obj)) {
-                    return new WP_Error('pga_ws_badjson', $obj->get_error_message(), ['status' => 500]);
                 }
 
                 // meta
